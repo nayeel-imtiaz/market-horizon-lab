@@ -2,6 +2,13 @@
 
 Forecast closing prices 1, 10, 21, or 63 trading sessions ahead and see how each model performed against the last-close baseline. Market Horizon Lab is a React and FastAPI dashboard for selected U.S.-listed tickers, including SOXL, MUU, GDXU, NVIDIA, Intel, and Alphabet. It defaults to one year of daily history and also supports three months, six months, and five years.
 
+## Tech Stack
+
+- **Frontend:** React
+- **Backend:** Python and FastAPI
+- **Forecasting:** scikit-learn
+- **Market data:** yfinance
+
 ## Forecast Preview
 
 ![MUU forecast cards showing estimated closing prices and baseline errors at four horizons](image-2.png)
@@ -40,7 +47,13 @@ If Yahoo Finance is unavailable, expand **CSV backtest and synthetic demo** to t
 - **Data and calendar.** Use completed regular trading sessions and derive features from Yahoo Finance's adjusted closes. Report the latest quoted close and anchor dollar forecasts to that close. The exchange calendar skips holidays and handles early closes. Forecasts are estimates for four target dates.
 - **Model.** Fit a separate ridge regression for each horizon. Each model predicts cumulative log return from historical returns and volatility. Refit on all labels available at the latest close to generate the upcoming forecast.
 - **Evaluation.** Walk forward over up to 126 recent origins per horizon. At each origin, fit the scaler and model using only labels whose target dates have occurred by that close. Compare predicted and realized cumulative returns in percentage points of MAE. The baseline predicts a zero return at every horizon.
-- **Interpretation.** Longer horizons need more history because training labels take longer to mature. For a ticker with a known listing date inside the selected lookback, the dashboard uses the available sessions and shows the actual dates. The dashboard marks horizons with too little data and reports how many forecasts were scored. Neighboring long-horizon forecasts can share much of the same price history. Backtest errors describe historical performance.
+- **History requirements.** Longer horizons need more history because training labels take longer to mature. For a ticker with a known listing date inside the selected lookback, the dashboard uses the available sessions and shows the actual dates. The dashboard marks horizons with too little data and reports how many forecasts were scored.
+
+## Limitations
+
+- Backtest scores measure historical accuracy. Future forecast errors can differ as market conditions change.
+- The last-close baseline can outperform ridge regression, as it did at all four horizons in the MUU example above.
+- Forecasts from neighboring dates can share much of the same return window, especially at longer horizons.
 
 ## Further reading
 
