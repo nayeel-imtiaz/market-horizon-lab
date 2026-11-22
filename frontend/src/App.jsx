@@ -3,7 +3,7 @@ import { Line } from 'react-chartjs-2';
 import 'chart.js/auto';
 import CsvBacktest from './components/CsvBacktest';
 
-const API = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+import { requestApi } from './api';
 const HORIZONS = { 1: 'Next session', 10: '10 sessions', 21: 'About 1 month', 63: 'About 3 months' };
 const dateLabel = new Intl.DateTimeFormat('en-US', { month: 'short', year: '2-digit', timeZone: 'UTC' });
 const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
@@ -126,11 +126,9 @@ export default function App() {
   async function loadCatalog(signal) {
     setCatalogError('');
     try {
-      const response = await fetch(`${API}/market-symbols`, { signal });
-      if (!response.ok) throw new Error('Catalog request failed.');
-      setGroups(await response.json());
+      setGroups(await requestApi('/market-symbols', { signal }));
     } catch (failure) {
-      if (failure.name !== 'AbortError') setCatalogError('Ticker list unavailable. Check that the API is running.');
+      if (!signal?.aborted) setCatalogError(failure.message);
     }
   }
 
@@ -146,14 +144,10 @@ export default function App() {
     setResult(null);
     setError('');
     try {
-      const response = await fetch(`${API}/market-forecast?lookback=${lookback}&symbol=${encodeURIComponent(symbol)}`);
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(typeof data.detail === 'string' ? data.detail : 'The forecast request failed.');
-      }
-      setResult(data);
+      const query = new URLSearchParams({ lookback, symbol });
+      setResult(await requestApi(`/market-forecast?${query}`));
     } catch (failure) {
-      setError(failure instanceof TypeError ? 'Could not connect to the API. Check that the backend is running.' : failure.message);
+      setError(failure.message);
     } finally {
       setBusy(false);
     }
