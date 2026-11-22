@@ -13,6 +13,7 @@ from backend.market import (
     MarketDataError, future_dates, load_history,
 )
 from backend.market_forecast import HORIZONS, horizon_results
+from backend.rate_limit import ForecastRateLimit
 
 Model = Literal["perceptron", "ann", "dnn"]
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024
@@ -29,6 +30,7 @@ def configure_cors(application, origins):
 
 
 app = FastAPI(title="Market Horizon Lab")
+app.add_middleware(ForecastRateLimit, render_proxy=os.getenv("RENDER") == "true")
 configure_cors(app, os.getenv("CORS_ALLOWED_ORIGINS", ",".join(LOCAL_ORIGINS)))
 
 
