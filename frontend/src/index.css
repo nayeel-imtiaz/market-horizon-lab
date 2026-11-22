@@ -1,0 +1,41 @@
+:root {
+  font-family: system-ui, sans-serif;
+  color: #152234;
+  background: #eef3f7;
+  line-height: 1.5;
+}
+body { margin: 0; }
+main { width: min(1100px, calc(100% - 2rem)); margin: 2.5rem auto; }
+header { border-bottom: 2px solid #0f766e; margin-bottom: 1.5rem; }
+h1 { font-size: clamp(2rem, 5vw, 3rem); letter-spacing: -.045em; margin: 0; }
+h2, h3 { margin: 0 0 .5rem; }
+p { color: #46566a; margin: .3rem 0 1rem; }
+.panel { background: white; border: 1px solid #d7e1eb; border-radius: 12px; padding: 1rem; margin-bottom: 1rem; }
+.controls { display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-end; }
+label { display: grid; gap: .25rem; font-weight: 600; }
+input, select, button { font: inherit; max-width: 100%; }
+select, button, input::file-selector-button { padding: .5rem .75rem; border: 1px solid #a6b6c7; border-radius: 7px; }
+button { cursor: pointer; background: #0f766e; color: white; border-color: #0f766e; font-weight: 600; }
+button.secondary { background: white; color: #0f615a; }
+button:disabled { opacity: .55; cursor: default; }
+.metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: .75rem; margin-bottom: 0; }
+dt { color: #46566a; }
+dd { margin: 0; font-size: 1.65rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.chart { position: relative; height: 300px; }
+[role="alert"] { color: #a01c26; }
+.market-heading { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: .75rem; }
+.latest-close { display: flex; align-items: baseline; gap: .5rem; margin-bottom: .75rem; }
+.latest-close strong { font-size: 1.5rem; }
+.horizon-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: .75rem; }
+.horizon-card { margin-bottom: .5rem; }
+.horizon-card p { font-size: .88rem; }
+.forecast-price { display: block; font-size: 1.9rem; font-variant-numeric: tabular-nums; }
+.comparison { border-top: 1px solid #d7e1eb; padding-top: .5rem; margin-bottom: .5rem; }
+.comparison div { display: flex; justify-content: space-between; gap: .5rem; }
+.comparison dd { font-size: 1rem; }
+.evaluation { margin-bottom: 0; }
+summary { cursor: pointer; font-weight: 600; }
+details[open] > summary { margin-bottom: 1rem; }
+.backtest-selector { width: fit-content; margin: .75rem 0; }
+.controls label { min-width: 0; }
+.controls select { max-width: 100%; }
