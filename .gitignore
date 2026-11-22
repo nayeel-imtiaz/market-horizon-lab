@@ -62,3 +62,9 @@ backend/dnn_model_output.txt
 jupyter_files/.ipynb_checkpoints/
 
 .venv/
+
+# Local deployment configuration
+.env
+.env.*
+!.env.example
+.vercel/

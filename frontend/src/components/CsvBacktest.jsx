@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import DataVisualization from './DataVisualization';
 
-const API = process.env.REACT_APP_API_URL || 'http://localhost:8000';
+import { requestApi } from '../api';
 
 export default function CsvBacktest() {
   const [model, setModel] = useState('ann');
@@ -21,16 +21,12 @@ export default function CsvBacktest() {
         form.append('file', file);
         form.append('model', model);
       }
-      const response = useDemo
-        ? await fetch(`${API}/demo?model=${model}`)
-        : await fetch(`${API}/upload-csv`, { method: 'POST', body: form });
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(typeof data.detail === 'string' ? data.detail : 'Check the CSV and model selection.');
-      }
-      setResult({ ...data, source: useDemo ? 'Synthetic demo' : file.name });
+      const result = useDemo
+        ? await requestApi(`/demo?model=${model}`)
+        : await requestApi('/upload-csv', { method: 'POST', body: form });
+      setResult({ ...result, source: useDemo ? 'Synthetic demo' : file.name });
     } catch (failure) {
-      setError(failure instanceof TypeError ? 'Could not connect to the API. Check that the backend is running.' : failure.message);
+      setError(failure.message);
     } finally {
       setBusy(false);
     }

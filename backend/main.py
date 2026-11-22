@@ -1,3 +1,6 @@
+from contextlib import contextmanager
+import os
+from threading import BoundedSemaphore
 from typing import Literal
 
 import pandas as pd
@@ -10,21 +13,49 @@ from backend.market import (
     MarketDataError, future_dates, load_history,
 )
 from backend.market_forecast import HORIZONS, horizon_results
+from backend.rate_limit import ForecastRateLimit
 
 Model = Literal["perceptron", "ann", "dnn"]
 MAX_UPLOAD_BYTES = 5 * 1024 * 1024
+LOCAL_ORIGINS = ("http://localhost:3000", "http://127.0.0.1:3000")
+forecast_slot = BoundedSemaphore(value=1)
+
+
+def configure_cors(application, origins):
+    application.add_middleware(
+        CORSMiddleware,
+        allow_origins=[origin.strip().rstrip("/") for origin in origins.split(",") if origin.strip()],
+        allow_methods=["GET", "POST"],
+    )
+
 
 app = FastAPI(title="Market Horizon Lab")
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
-    allow_methods=["GET", "POST"],
-)
+app.add_middleware(ForecastRateLimit, render_proxy=os.getenv("RENDER") == "true")
+configure_cors(app, os.getenv("CORS_ALLOWED_ORIGINS", ",".join(LOCAL_ORIGINS)))
+
+
+@contextmanager
+def forecast_capacity():
+    if not forecast_slot.acquire(blocking=False):
+        raise HTTPException(
+            status_code=503, detail="Another forecast is running. Try again shortly.",
+            headers={"Retry-After": "5"},
+        )
+    try:
+        yield
+    finally:
+        forecast_slot.release()
+
+
+@app.get("/health")
+async def health():
+    return {"status": "ok"}
 
 
 @app.get("/demo")
 def run_demo(model: Model = "ann"):
-    return backtest(demo_data(), model)
+    with forecast_capacity():
+        return backtest(demo_data(), model)
 
 
 @app.post("/upload-csv")
@@ -36,7 +67,8 @@ def upload_csv(file: UploadFile, model: Model = Form(...)):
     except (ValueError, UnicodeError) as error:
         raise HTTPException(status_code=422, detail="Upload a readable UTF-8 CSV.") from error
     try:
-        return backtest(dataset, model)
+        with forecast_capacity():
+            return backtest(dataset, model)
     except ValueError as error:
         raise HTTPException(status_code=422, detail=str(error)) from error
 
@@ -55,10 +87,11 @@ def market_forecast(
     if symbol not in SUPPORTED_SYMBOLS:
         raise HTTPException(status_code=422, detail="Select a supported ticker.")
     try:
-        bars = load_history(lookback, symbol=symbol)
-        as_of = bars.index[-1]
-        last_close = float(bars["Close"].iloc[-1])
-        horizons = horizon_results(bars["Adj Close"], last_close, future_dates(as_of, max(HORIZONS)))
+        with forecast_capacity():
+            bars = load_history(lookback, symbol=symbol)
+            as_of = bars.index[-1]
+            last_close = float(bars["Close"].iloc[-1])
+            horizons = horizon_results(bars["Adj Close"], last_close, future_dates(as_of, max(HORIZONS)))
     except MarketDataError as error:
         raise HTTPException(status_code=503, detail=str(error)) from error
     except ValueError as error:
