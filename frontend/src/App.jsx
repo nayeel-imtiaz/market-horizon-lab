@@ -2,8 +2,13 @@ import { useEffect, useState } from 'react';
 import { Line } from 'react-chartjs-2';
 import 'chart.js/auto';
 import CsvBacktest from './components/CsvBacktest';
-
+import RequestStatus from './components/RequestStatus';
 import { requestApi } from './api';
+import { categoryTicks, legendOptions, useCompactChart } from './chartLayout';
+import useRequest from './useRequest';
+
+const LOOKBACKS = { '3m': '3 months', '6m': '6 months', '1y': '1 year', '5y': '5 years' };
+const fetchCatalog = (signal) => requestApi('/market-symbols', { signal });
 const HORIZONS = { 1: 'Next session', 10: '10 sessions', 21: 'About 1 month', 63: 'About 3 months' };
 const dateLabel = new Intl.DateTimeFormat('en-US', { month: 'short', year: '2-digit', timeZone: 'UTC' });
 const usd = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' });
@@ -11,6 +16,7 @@ const signed = new Intl.NumberFormat('en-US', { maximumFractionDigits: 2, signDi
 
 function ForecastResults({ result }) {
   const [selectedHorizon, setSelectedHorizon] = useState(1);
+  const compact = useCompactChart();
   const available = result.horizons.filter((horizon) => !horizon.reason);
   const evaluation = available.find((horizon) => horizon.sessions === selectedHorizon) || available[0];
 
@@ -19,7 +25,7 @@ function ForecastResults({ result }) {
       <div className="market-heading">
         <div>
           <h2>{result.symbol} closing-price forecasts</h2>
-          <p>{result.source} · {result.history_count} sessions from {result.start_date} to {result.as_of}</p>
+          <p>{LOOKBACKS[result.lookback]} lookback · {result.source} · {result.history_count} sessions from {result.start_date} to {result.as_of}</p>
           {result.history_limited && <p>{result.symbol} began trading within the selected window. Using available history.</p>}
         </div>
         <div className="latest-close">
@@ -74,9 +80,9 @@ function ForecastResults({ result }) {
             ],
           }} options={{
             maintainAspectRatio: false,
-            plugins: { tooltip: { callbacks: { title: ([item]) => new Date(item.parsed.x).toISOString().slice(0, 10) } } },
+            plugins: { legend: legendOptions(compact), tooltip: { callbacks: { title: ([item]) => new Date(item.parsed.x).toISOString().slice(0, 10) } } },
             scales: {
-              x: { type: 'linear', ticks: { maxTicksLimit: 8, maxRotation: 0, callback: (value) => dateLabel.format(value) } },
+              x: { type: 'linear', ticks: { maxTicksLimit: compact ? 4 : 8, maxRotation: 0, callback: (value) => dateLabel.format(value) } },
               y: { title: { display: true, text: 'USD' } },
             },
           }} />
@@ -101,9 +107,10 @@ function ForecastResults({ result }) {
               ],
             }} options={{
               maintainAspectRatio: false,
+              plugins: { legend: legendOptions(compact) },
               scales: {
-                x: { ticks: { maxTicksLimit: 8, maxRotation: 0 } },
-                y: { title: { display: true, text: 'Cumulative return (%)' } },
+                x: { ticks: categoryTicks(compact, true) },
+                y: { title: { display: true, text: compact ? 'Return (%)' : 'Cumulative return (%)' } },
               },
             }} />
           </div>
@@ -116,41 +123,26 @@ function ForecastResults({ result }) {
 
 export default function App() {
   const [symbol, setSymbol] = useState('SOXL');
-  const [groups, setGroups] = useState(null);
-  const [catalogError, setCatalogError] = useState('');
   const [lookback, setLookback] = useState('1y');
-  const [result, setResult] = useState(null);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState('');
-
-  async function loadCatalog(signal) {
-    setCatalogError('');
-    try {
-      setGroups(await requestApi('/market-symbols', { signal }));
-    } catch (failure) {
-      if (!signal?.aborted) setCatalogError(failure.message);
-    }
-  }
+  const catalog = useRequest();
+  const forecast = useRequest();
+  const loadCatalog = catalog.run;
+  const groups = catalog.result;
+  const { result, pending } = forecast;
+  const selectionChanged = result && (result.symbol !== symbol || result.lookback !== lookback);
 
   useEffect(() => {
-    const controller = new AbortController();
-    loadCatalog(controller.signal);
-    return () => controller.abort();
-  }, []);
+    loadCatalog(fetchCatalog);
+  }, [loadCatalog]);
 
-  async function runForecast(event) {
+  function runForecast(event) {
     event.preventDefault();
-    setBusy(true);
-    setResult(null);
-    setError('');
-    try {
-      const query = new URLSearchParams({ lookback, symbol });
-      setResult(await requestApi(`/market-forecast?${query}`));
-    } catch (failure) {
-      setError(failure.message);
-    } finally {
-      setBusy(false);
-    }
+    if (!groups) return;
+    const query = new URLSearchParams({ lookback, symbol });
+    forecast.run(
+      (signal) => requestApi(`/market-forecast?${query}`, { signal }),
+      `${symbol} · ${LOOKBACKS[lookback]}`,
+    );
   }
 
   return (
@@ -159,9 +151,9 @@ export default function App() {
         <h1>Market Horizon Lab</h1>
         <p>Forecast closing prices up to 63 trading sessions ahead and compare model accuracy with a last-close baseline.</p>
       </header>
-      <form className="panel controls" onSubmit={runForecast} aria-label="Market forecast settings">
+      <form className="panel controls forecast-controls" onSubmit={runForecast} aria-label="Market forecast settings">
         <label>Ticker
-          <select value={symbol} onChange={(event) => setSymbol(event.target.value)} disabled={busy || !groups}>
+          <select value={symbol} onChange={(event) => setSymbol(event.target.value)} disabled={pending || !groups}>
             {groups ? Object.entries(groups).map(([group, members]) => (
               <optgroup label={group} key={group}>
                 {Object.entries(members).map(([ticker, name]) => <option key={ticker} value={ticker}>{ticker} — {name}</option>)}
@@ -170,21 +162,36 @@ export default function App() {
           </select>
         </label>
         <label>History
-          <select value={lookback} onChange={(event) => setLookback(event.target.value)} disabled={busy}>
-            <option value="3m">3 months</option>
-            <option value="6m">6 months</option>
-            <option value="1y">1 year</option>
-            <option value="5y">5 years</option>
+          <select value={lookback} onChange={(event) => setLookback(event.target.value)} disabled={pending}>
+            {Object.entries(LOOKBACKS).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
           </select>
         </label>
-        <button disabled={busy}>Run {symbol} forecast</button>
+        <button disabled={pending || !groups}>Run {symbol} forecast</button>
       </form>
-      {catalogError && <p role="alert">{catalogError} <button className="secondary" onClick={() => loadCatalog()}>Retry ticker list</button></p>}
-      {busy && <p role="status">Fetching daily prices and running backtests…</p>}
-      {error && <p role="alert">{error}</p>}
-      {result && <ForecastResults result={result} />}
-      <details className="panel">
-        <summary>CSV backtest and synthetic demo</summary>
+      {catalog.pending && <RequestStatus message="Connecting to forecasting service…" />}
+      {catalog.error && (
+        <div className="request-error">
+          <p role="alert">Ticker list unavailable. {catalog.error}</p>
+          <button className="secondary" onClick={catalog.retry}>Retry ticker list</button>
+        </div>
+      )}
+      {pending && <RequestStatus message={`Waiting for forecast and backtest for ${forecast.label}…`} />}
+      {forecast.error && (
+        <div className="request-error">
+          <p role="alert">{forecast.label} forecast failed. {forecast.error}</p>
+          <button className="secondary" onClick={forecast.retry}>Retry forecast</button>
+        </div>
+      )}
+      {selectionChanged && (
+        <p className="selection-note">
+          Showing the last completed forecast for {result.symbol} · {LOOKBACKS[result.lookback]}.
+          {pending ? ' The requested forecast is pending.' : ` Run ${symbol} forecast to apply your selection.`}
+        </p>
+      )}
+      {result && <ForecastResults key={`${result.symbol}-${result.lookback}`} result={result} />}
+      <details className="panel advanced-tools">
+        <summary>Advanced Tools: CSV Backtesting &amp; Synthetic Data</summary>
+        <p>Upload a CSV of historical closing prices to run a holdout backtest, or try the same workflow with generated prices.</p>
         <CsvBacktest />
       </details>
     </main>

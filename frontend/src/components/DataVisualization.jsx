@@ -1,5 +1,6 @@
 import { Line } from 'react-chartjs-2';
 import 'chart.js/auto';
+import { categoryTicks, legendOptions, useCompactChart } from '../chartLayout';
 
 const MODEL_NAMES = { ann: 'Shallow neural network', dnn: 'Deep neural network', perceptron: 'Linear regressor' };
 const number = new Intl.NumberFormat(undefined, { maximumSignificantDigits: 4 });
@@ -8,7 +9,8 @@ function series(label, data, color, dashed = false) {
   return { label, data, borderColor: color, backgroundColor: color, pointRadius: 0, borderWidth: 2, borderDash: dashed ? [5, 4] : [] };
 }
 
-function Chart({ title, labels, datasets, units }) {
+function Chart({ title, labels, datasets, units, dates }) {
+  const compact = useCompactChart();
   return (
     <section className="panel">
       <h3>{title}</h3>
@@ -19,8 +21,9 @@ function Chart({ title, labels, datasets, units }) {
           options={{
             maintainAspectRatio: false,
             interaction: { mode: 'index', intersect: false },
+            plugins: { legend: legendOptions(compact) },
             scales: {
-              x: { ticks: { maxTicksLimit: 8, maxRotation: 0 } },
+              x: { ticks: categoryTicks(compact, dates) },
               y: { title: { display: true, text: units } },
             },
           }}
@@ -50,7 +53,7 @@ export default function DataVisualization({ data }) {
           </div>
         ))}
       </dl>
-      <Chart title="Closing prices" labels={data.dates} units="Price" datasets={[
+      <Chart dates title="Closing prices" labels={data.dates} units="Price" datasets={[
         series('Actual', data.Y_test, '#172554'),
         series('Model', data.Y_pred, '#0f766e'),
         series('Previous close', data.baseline, '#b45309', true),

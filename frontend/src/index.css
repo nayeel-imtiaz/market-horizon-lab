@@ -39,3 +39,39 @@ details[open] > summary { margin-bottom: 1rem; }
 .backtest-selector { width: fit-content; margin: .75rem 0; }
 .controls label { min-width: 0; }
 .controls select { max-width: 100%; }
+
+.request-status, .request-error { display: flex; align-items: center; gap: .75rem; margin-bottom: 1rem; }
+.request-status, .selection-note { padding: .75rem; border-radius: 7px; background: #e1edf1; }
+.request-status p, .request-error p { margin: 0; }
+.request-error { flex-wrap: wrap; }
+.elapsed { display: block; color: #46566a; font-size: .875rem; font-variant-numeric: tabular-nums; }
+.spinner {
+  flex: none;
+  width: 1rem;
+  height: 1rem;
+  border: 2px solid #a5c6ce;
+  border-top-color: #0f766e;
+  border-radius: 50%;
+  animation: spin .8s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .spinner { animation: none; } }
+.request-status, .request-error, .selection-note { overflow-wrap: anywhere; }
+.advanced-tools { overflow-wrap: anywhere; }
+
+@media (max-width: 480px) {
+  main { width: calc(100% - 1.5rem); margin: 1.25rem auto; }
+  header { margin-bottom: 1rem; }
+  h1 { font-size: clamp(1.7rem, 8vw, 2.25rem); }
+  .panel { padding: .75rem; }
+  .controls { display: grid; grid-template-columns: minmax(0, 1fr); gap: .75rem; }
+  .controls select, .controls button, .controls input { width: 100%; box-sizing: border-box; }
+  .controls select, .controls button, .backtest-selector select { min-height: 44px; }
+  .controls select { text-overflow: ellipsis; }
+  .market-heading { gap: .25rem; }
+  .latest-close { flex-wrap: wrap; }
+  .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem; }
+  .metrics dd { font-size: 1.35rem; }
+  .horizon-grid { grid-template-columns: minmax(0, 1fr); gap: .5rem; }
+  .chart { height: 240px; }
+}
